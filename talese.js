@@ -1,5 +1,17 @@
 (function() {
+
+  // {{{ BROWSER EVENT HELPER
+  function addEvent(listener, evt, cb) {
+    if (document.addEventListener) {
+      listener.addEventListener(evt, cb);
+    } else if (document.attachEvent) {
+      listener.attachEvent("on"+evt, cb);
+    }
+  }
+  // }}}
+
   // {{{ SAMPLE API
+  // override Sample.__send to use this instrumentation to its fullest!
   var Sample = function(dataset) {
     var dict = { integer: {}, set: {}, string: {} };
 
@@ -9,15 +21,11 @@
         dataset: dataset,
       },
       integer: function(k, v) {
-        dict.integer[k] = parseInt(v, 10);
+        dict.integer[k] = v;
         return obj;
       },
       string: function(k, v) {
         dict.string[k] = v;
-        return obj;
-      },
-      set: function(k, v) {
-        dict.set[k] = v;
         return obj;
       },
       send: function() {
@@ -28,7 +36,7 @@
 
         var copy = {};
         dict.__sent = true;
-        var fields = [ "integer", "string", "set" ];
+        var fields = [ "integer", "string" ];
         for (var f = 0; f < fields.length; f++) {
           var inner = dict[fields[f]];
           var keys = Object.keys(inner);
@@ -62,20 +70,10 @@
 
   // }}} SAMPLE API
 
-  // {{{ DOM & BROWSER HELPERS
-  function addEvent(listener, evt, cb) {
-    if (document.addEventListener) {
-      listener.addEventListener(evt, cb);
-    } else if (document.attachEvent) {
-      listener.attachEvent("on"+evt, cb);
-    }
-  }
-
-  // }}}
-
   // {{{ INSTRUMENTATION APIS
-  // Create custom action paths
+  // {{{ UserActions (click tracking)
   var UserActions = {
+    // pulls data off DOM nodes for click tracking
     collect_data_from_nodes: function(target) {
       var  specList = "", firstSpec = "";
       var curNode = target;
@@ -127,7 +125,6 @@
 
       evt.__handled = true;
 
-      // things to track about a click...
       var sample = new Sample("useractions");
       var data = UserActions.collect_data_from_nodes(evt.target);
 
@@ -158,8 +155,9 @@
       }
     }
   };
+  // }}} UserActions
 
-
+  // {{{ TimeSpent
   var IDLE_TIMER = 0;
   // Allocates time spent proportional to the time spent in various contexts on the page
   var TimeSpent = {
@@ -200,10 +198,9 @@
         hiddenProp = "webkitHidden";
         visibilityChange = "webkitvisibilitychange";
       }
+      // MDN Based code
 
       var unfocused = false;
-
-
       // STACK OVERFLOW: http://codereview.stackexchange.com/questions/123645/pagevisibility-api-to-handle-page-tab-visibility-changes/124122
       function onshow() { unfocused = false; }
       function onhide() { unfocused = true; }
@@ -215,6 +212,8 @@
         window.onpageshow = window.onfocus = onshow;
         window.onpagehide = window.onblur = onhide;
       }
+
+      // End SO based code
 
 
 
@@ -254,8 +253,7 @@
 
       var checks = 0;
 
-      // TODO: report on a minute by minute basis or do we let the accumulation
-      // grow? this can be answered in the frontend or backend
+      // TODO: report activity on a 'saturation' basis
       var checks_before_send = 1000 / chunk_size * 60;
       function checkVisibility() {
         // Assign timings to who
@@ -299,8 +297,6 @@
 
             packet.unknown += delta - chunk_size;
           }
-
-
         }
 
 
@@ -334,7 +330,9 @@
     }
   };
 
+  // }}} TimeSpent
 
+  // {{{ Pathing (Current URL & in-page context)
   // Monitors window.location and keeps track of when it changes
   var CURRENT_URL = null;
   var CURRENT_CTX = null;
@@ -369,13 +367,11 @@
 
   };
 
-  // }}}
+  // }}} 
+  // }}} 
 
   // {{{ MAIN INSTRUMENTATION MODULE
   var Instrumentation = {
-    // Install the click handler that reports all clicks
-    // Add mouse move timer for tracking time spent
-    // Add the page load handler (reports the URL being loaded)
     init: function() {
       UserActions.init();
       TimeSpent.init();
