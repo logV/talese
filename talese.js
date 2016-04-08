@@ -218,6 +218,7 @@
 
 
       var time_spent_packets = {};
+      var session_size = 60;
 
       function get_time_spent_sample(page, context) {
         context = context || "*";
@@ -254,7 +255,7 @@
       var checks = 0;
 
       // TODO: report activity on a 'saturation' basis
-      var checks_before_send = 1000 / chunk_size * 60;
+      var checks_before_send = 1000 / chunk_size * session_size;
       function checkVisibility() {
         // Assign timings to who
         var hidden = document[hiddenProp];
@@ -302,7 +303,7 @@
 
         lastChange = Date.now();
 
-        if (checks > checks_before_send) {
+        if (checks >= checks_before_send) {
           dump_packets();
 
           checks = 0;
@@ -367,8 +368,49 @@
 
   };
 
-  // }}} 
-  // }}} 
+  // }}}
+  // {{{ Performance
+  var Performance = {
+    init: function() {
+      function checkPerf() {
+        var s = new Sample("w3c_nav");
+        // don't use CURRENT_URL because it won't be set yet
+        s.string("page", window.location.pathname);
+
+        if (typeof window.performance !== "undefined") {
+          var perf = window.performance;
+          if (typeof perf.timing !== "undefined") {
+            var timing = perf.timing;
+            var start = timing.navigationStart;
+            s.integer("client_time", start);
+
+            // .hasOwnProperty() doesn't work on timing, afaict
+            for (var prop in timing) {
+              var val = timing[prop];
+              if (val >= 0) {
+                s.integer(prop, Math.max(timing[prop] - start, 0));
+              }
+            }
+
+            s.send();
+          }
+        }
+      }
+
+      if (document.readyState === "complete") {
+        checkPerf();
+      } else {
+        addEvent(document, "readystatechange", function() {
+          if (document.readyState === "complete") {
+            checkPerf();
+          }
+        });
+      }
+    },
+
+  };
+  // }}}
+  // }}}
 
   // {{{ MAIN INSTRUMENTATION MODULE
   var Instrumentation = {
@@ -376,12 +418,14 @@
       UserActions.init();
       TimeSpent.init();
       Pathing.init();
+      Performance.init();
 
     },
     Sample: Sample,
     UserActions: UserActions,
     TimeSpent: TimeSpent,
-    Pathing: Pathing
+    Pathing: Pathing,
+    Performance: Performance
   };
 
   if (typeof module !== "undefined") {
