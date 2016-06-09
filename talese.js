@@ -75,8 +75,8 @@
   // }}} SAMPLE API
 
   // {{{ INSTRUMENTATION APIS
-  // {{{ UserActions (click tracking)
-  var UserActions = {
+  // {{{ ClickTrack (click tracking)
+  var ClickTrack = {
     // pulls data off DOM nodes for click tracking
     collect_data_from_nodes: function(target) {
       var  specList = "", firstSpec = "";
@@ -130,7 +130,7 @@
       evt.__handled = true;
 
       var sample = new Sample("useractions");
-      var data = UserActions.collect_data_from_nodes(evt.target);
+      var data = ClickTrack.collect_data_from_nodes(evt.target);
 
       sample
         .string("action", "click")
@@ -152,14 +152,14 @@
       if (window.jQuery) {
         $(function() {
           // The delegate portion is so we can track clicks that are event stop propagated
-          $("body").delegate("*", "click", UserActions.handle_click);
+          $("body").delegate("*", "click", ClickTrack.handle_click);
         });
       } else {
-        addEvent(document, "click", UserActions.handle_click);
+        addEvent(document, "click", ClickTrack.handle_click);
       }
     }
   };
-  // }}} UserActions
+  // }}} ClickTrack
 
   // {{{ TimeSpent
   var IDLE_TIMER = 0;
@@ -419,14 +419,14 @@
   // {{{ MAIN INSTRUMENTATION MODULE
   var Instrumentation = {
     init: function() {
-      UserActions.init();
+      ClickTrack.init();
       TimeSpent.init();
       Pathing.init();
       Performance.init();
 
     },
     Sample: Sample,
-    UserActions: UserActions,
+    ClickTrack: ClickTrack,
     TimeSpent: TimeSpent,
     Pathing: Pathing,
     Performance: Performance
